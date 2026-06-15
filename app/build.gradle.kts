@@ -64,6 +64,7 @@ dependencies {
     // Retrofit
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
+    implementation(libs.converter.kotlinx.serialization)
 
     testImplementation(libs.junit)
 
