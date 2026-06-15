@@ -1,53 +1,62 @@
 package com.neilmosca.basicandroidnetworking
 
-import java.util.UUID
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.logging.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.json.Json
 
-class MoviesApi private constructor() {
+class MoviesApi(private val client: HttpClient) {
 
-    // In-memory list to store movies
-    private val movies = mutableListOf(
-        Movie(id = UUID.randomUUID().toString(), title = "Inception", genre = "Sci-Fi", year = 2010),
-        Movie(id = UUID.randomUUID().toString(), title = "Interstellar", genre = "Sci-Fi", year = 2014),
-        Movie(id = UUID.randomUUID().toString(), title = "The Dark Knight", genre = "Action", year = 2008)
-    )
+    private val baseUrl = "http://10.0.2.2:5000/api/movies"
 
-    fun getMovies(): List<Movie> = movies.toList()
-
-    fun getMovie(id: String): Movie {
-        return movies.find { it.id == id } ?: throw Exception("Movie not found")
+    suspend fun getMovies(): List<Movie> {
+        return client.get(baseUrl).body()
     }
 
-    fun createMovie(movie: Movie): Movie {
-        val newMovie = movie.copy(id = UUID.randomUUID().toString())
-        movies.add(newMovie)
-        return newMovie
+    suspend fun getMovie(id: String): Movie {
+        return client.get("$baseUrl/$id").body()
+    }
+
+    suspend fun createMovie(movie: Movie): Movie {
+        return client.post(baseUrl) {
+            contentType(ContentType.Application.Json)
+            setBody(movie)
+        }.body()
     }
 
     suspend fun updateMovie(id: String, movie: Movie): Movie {
-        val index = movies.indexOfFirst { it.id == id }
-        if (index != -1) {
-            movies[index] = movie.copy(id = id)
-            return movies[index]
-        }
-        throw Exception("Movie not found")
+        return client.put("$baseUrl/$id") {
+            contentType(ContentType.Application.Json)
+            setBody(movie)
+        }.body()
     }
 
     suspend fun deleteMovie(id: String): MovieResponse {
-        val removed = movies.removeIf { it.id == id }
-        return MovieResponse(isSuccessful = removed)
+        val response = client.delete("$baseUrl/$id")
+        return MovieResponse(isSuccessful = response.status.isSuccess())
     }
 
-    // Helper class to match the 'isSuccessful' check in your ViewModel
     data class MovieResponse(val isSuccessful: Boolean)
 
     companion object {
-        private var instance: MoviesApi? = null
-
         fun create(): MoviesApi {
-            if (instance == null) {
-                instance = MoviesApi()
+            val client = HttpClient(OkHttp) {
+                install(ContentNegotiation) {
+                    json(Json {
+                        ignoreUnknownKeys = true
+                        coerceInputValues = true
+                    })
+                }
+                install(Logging) {
+                    level = LogLevel.BODY
+                }
             }
-            return instance!!
+            return MoviesApi(client)
         }
     }
 }
