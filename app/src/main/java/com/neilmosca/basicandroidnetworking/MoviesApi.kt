@@ -1,46 +1,53 @@
 package com.neilmosca.basicandroidnetworking
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.PUT
-import retrofit2.http.Path
 
-interface MoviesApi {
-    // Create
-    @POST("api/movies")
-    suspend fun createMovie(@Body movie: Movie): Movie
+import java.util.UUID
 
-    // Read (List)
-    @GET("api/movies")
-    suspend fun getMovies(): List<Movie>
+class MoviesApi private constructor() {
 
-    // Read (Single)
-    @GET("api/movies/{id}")
-    suspend fun getMovie(@Path("id") id: String): Movie
+    // In-memory list to store movies
+    private val movies = mutableListOf(
+        Movie(id = UUID.randomUUID().toString(), title = "Inception", genre = "Sci-Fi", year = 2010),
+        Movie(id = UUID.randomUUID().toString(), title = "Interstellar", genre = "Sci-Fi", year = 2014),
+        Movie(id = UUID.randomUUID().toString(), title = "The Dark Knight", genre = "Action", year = 2008)
+    )
 
-    // Update
-    @PUT("api/movies/{id}")
-    suspend fun updateMovie(@Path("id") id: String, @Body movie: Movie): Movie
+    fun getMovies(): List<Movie> = movies.toList()
 
-    // Delete
-    @DELETE("api/movies/{id}")
-    suspend fun deleteMovie(@Path("id") id: String): Response<Unit>
+    fun getMovie(id: String): Movie {
+        return movies.find { it.id == id } ?: throw Exception("Movie not found")
+    }
+
+    fun createMovie(movie: Movie): Movie {
+        val newMovie = movie.copy(id = UUID.randomUUID().toString())
+        movies.add(newMovie)
+        return newMovie
+    }
+
+    suspend fun updateMovie(id: String, movie: Movie): Movie {
+        val index = movies.indexOfFirst { it.id == id }
+        if (index != -1) {
+            movies[index] = movie.copy(id = id)
+            return movies[index]
+        }
+        throw Exception("Movie not found")
+    }
+
+    suspend fun deleteMovie(id: String): MovieResponse {
+        val removed = movies.removeIf { it.id == id }
+        return MovieResponse(isSuccessful = removed)
+    }
+
+    // Helper class to match the 'isSuccessful' check in your ViewModel
+    data class MovieResponse(val isSuccessful: Boolean)
 
     companion object {
-
-        // Connect to localhost, use 10.0.2.2 for emulator's loopback
-        private const val BASE_URL = "http://10.0.2.2:5000/"
+        private var instance: MoviesApi? = null
 
         fun create(): MoviesApi {
-            return Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-                .create(MoviesApi::class.java)
+            if (instance == null) {
+                instance = MoviesApi()
+            }
+            return instance!!
         }
     }
 }
