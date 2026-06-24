@@ -30,7 +30,7 @@ class MovieViewModel : ViewModel() {
 
     private fun getMovies() {
         viewModelScope.launch {
-            _viewState.update { it.copy(isLoading = true) }
+            _viewState.update { it.copy(isLoading = true, hasError = false) }
             try {
                 val movies = api.getMovies()
                 _viewState.update { it.copy(movies = movies.toMutableList(), isLoading = false, hasError = false) }
@@ -53,37 +53,48 @@ class MovieViewModel : ViewModel() {
 
     private fun createMovie(movie: Movie) {
         viewModelScope.launch {
+            _viewState.update { it.copy(isLoading = true, hasError = false) }
             try {
                 val createdMovie = api.createMovie(movie)
-                if (createdMovie.id.isNotEmpty()) getMovies()
+                if (createdMovie.id.isNotEmpty()) {
+                    getMovies()
+                } else {
+                    _viewState.update { it.copy(isLoading = false, hasError = true) }
+                }
             } catch (e: Exception) {
-                _viewState.update { it.copy(hasError = true) }
+                _viewState.update { it.copy(isLoading = false, hasError = true) }
             }
         }
     }
 
     private fun updateMovie(id: String, movie: Movie) {
         viewModelScope.launch {
+            _viewState.update { it.copy(isLoading = true, hasError = false) }
             try {
                 val updatedMovie = api.updateMovie(id, movie)
-                if (updatedMovie.id.isNotEmpty()) getMovies()
+                if (updatedMovie.id.isNotEmpty()) {
+                    getMovies()
+                } else {
+                    _viewState.update { it.copy(isLoading = false, hasError = true) }
+                }
             } catch (e: Exception) {
-                _viewState.update { it.copy(hasError = true) }
+                _viewState.update { it.copy(isLoading = false, hasError = true) }
             }
         }
     }
 
     private fun deleteMovie(id: String) {
         viewModelScope.launch {
+            _viewState.update { it.copy(isLoading = true, hasError = false) }
             try {
                 val response = api.deleteMovie(id)
                 if (response.isSuccessful) {
                     getMovies()
                 } else {
-                    _viewState.update { it.copy(hasError = true) }
+                    _viewState.update { it.copy(isLoading = false, hasError = true) }
                 }
             } catch (e: Exception) {
-                _viewState.update { it.copy(hasError = true) }
+                _viewState.update { it.copy(isLoading = false, hasError = true) }
             }
         }
     }
